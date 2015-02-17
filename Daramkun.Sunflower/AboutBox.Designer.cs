@@ -68,7 +68,7 @@
 			// logoPictureBox
 			// 
 			this.logoPictureBox.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.logoPictureBox.Image = global::Daramkun.Sunflower.Properties.Resources._6mgck;
+			this.logoPictureBox.Image = global::Daramkun.Sunflower.Properties.Resources.mgck;
 			this.logoPictureBox.Location = new System.Drawing.Point(3, 4);
 			this.logoPictureBox.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.logoPictureBox.Name = "logoPictureBox";
