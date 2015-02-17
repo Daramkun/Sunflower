@@ -15,14 +15,59 @@ namespace Daramkun.Sunflower
 	{
 		[DllImport ( "user32.dll" )]
 		private extern static bool ExitWindowsEx ( uint uFlags, uint dwReason );
+		[DllImport ( "kernel32.dll" )]
+		private extern static uint GetLastError ();
+		[DllImport ( "advapi32.dll" )]
+		private extern static bool OpenProcessToken ( IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle );
+		[DllImport ( "advapi32.dll" )]
+		private extern static bool LookupPrivilegeValue ( string lpSystemName, string lpName, out int lpLuid );
+		[StructLayout(LayoutKind.Sequential)]
+		struct TOKEN_PRIVILEGES
+		{
+			public uint privilegeCount;
+			[MarshalAs ( UnmanagedType.ByValArray, SizeConst = 1 )]
+			public LUID_AND_ATTRIBUTES [] privileges;
+		}
+		[StructLayout ( LayoutKind.Sequential )]
+		struct LUID_AND_ATTRIBUTES
+		{
+			public int Luid;
+			public uint Attributes;
+		}
+		[DllImport ( "advapi32.dll" )]
+		private extern static bool AdjustTokenPrivileges ( IntPtr tokenHandle, bool disableAllPrivileges,
+			ref TOKEN_PRIVILEGES newState, uint bufferLength, IntPtr previousState, IntPtr returnLength );
 
 		static void Reboot ()
 		{
 			if ( MessageBox.Show ( "Are you doing reboot now?", "Notice", MessageBoxButtons.YesNo, MessageBoxIcon.Question ) == DialogResult.Yes )
 			{
-				if ( !ExitWindowsEx ( 0x00000002, 0 ) )
+				try
 				{
-					MessageBox.Show ( "Cannot reboot now. Please reboot manually.", "Notice", MessageBoxButtons.OK, MessageBoxIcon.Error );
+					IntPtr token;
+					if ( !OpenProcessToken ( Process.GetCurrentProcess ().Handle, 0x0020 | 0x0008, out token ) )
+						throw new Exception ( "OpenProcessToken" );
+
+					int luid;
+					if ( !LookupPrivilegeValue ( null, "SeShutdownPrivilege", out luid ) )
+						throw new Exception ( "LookupPrivilegeValue" );
+
+					TOKEN_PRIVILEGES priv = new TOKEN_PRIVILEGES ();
+					priv.privilegeCount = 1;
+					priv.privileges = new LUID_AND_ATTRIBUTES [ 1 ];
+					priv.privileges [ 0 ].Luid = luid;
+					priv.privileges [ 0 ].Attributes = 0x00000002;
+
+					if ( !AdjustTokenPrivileges ( token, false, ref priv, 0, IntPtr.Zero, IntPtr.Zero ) )
+						throw new Exception ( "AdjustTokenPrivileges" );
+
+					if ( !ExitWindowsEx ( 0x00000002, 0 ) )
+						throw new Exception ( "ExitWindowsEx" );
+				}
+				catch ( Exception ex )
+				{
+					MessageBox.Show ( string.Format ( "Cannot reboot now. Please reboot manually.\nError code: {0}, When: {1}", GetLastError (), ex.Message ),
+						"Notice", MessageBoxButtons.OK, MessageBoxIcon.Error );
 				}
 			}
 			else MessageBox.Show ( "You need reboot for complete this action.", "Notice", MessageBoxButtons.OK, MessageBoxIcon.Information );
